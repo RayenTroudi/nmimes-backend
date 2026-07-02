@@ -95,7 +95,8 @@ async def submit_step(
                 return
 
             step = await supabase_client.select_one(
-                STEPS_TABLE, filters={"id": f"eq.{payload.step_id}"}
+                STEPS_TABLE,
+                filters={"id": f"eq.{payload.step_id}", "session_id": f"eq.{session_id}"},
             )
             if step is None:
                 yield format_sse("error", {"message": "Step not found"})
@@ -103,7 +104,7 @@ async def submit_step(
 
             await supabase_client.update_rows(
                 STEPS_TABLE,
-                filters={"id": f"eq.{payload.step_id}"},
+                filters={"id": f"eq.{payload.step_id}", "session_id": f"eq.{session_id}"},
                 data={"student_answer": payload.student_answer},
             )
 
@@ -127,7 +128,7 @@ async def submit_step(
 
             await supabase_client.update_rows(
                 STEPS_TABLE,
-                filters={"id": f"eq.{payload.step_id}"},
+                filters={"id": f"eq.{payload.step_id}", "session_id": f"eq.{session_id}"},
                 data={"tier": evaluation["tier"], "feedback": evaluation["feedback"]},
             )
 
