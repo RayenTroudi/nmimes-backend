@@ -54,6 +54,20 @@ async def insert_row(table: str, data: dict[str, Any]) -> dict[str, Any]:
     return rows[0] if rows else {}
 
 
+async def upsert_row(table: str, data: dict[str, Any], on_conflict: str = "id") -> dict[str, Any]:
+    """Insert a row, or update it in place if on_conflict's column value already exists."""
+    client = get_client()
+    response = await client.post(
+        f"/{table}",
+        json=data,
+        params={"on_conflict": on_conflict},
+        headers={"Prefer": "return=representation,resolution=merge-duplicates"},
+    )
+    response.raise_for_status()
+    rows = response.json()
+    return rows[0] if rows else {}
+
+
 async def update_rows(table: str, filters: dict[str, str], data: dict[str, Any]) -> list[dict[str, Any]]:
     """Update rows matching PostgREST-style filters, e.g. {'id': 'eq.<uuid>'}."""
     client = get_client()
