@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
-from routers import leaderboard, sessions, teach_it_back, webhooks
+from routers import leaderboard, parents, sessions, students, teach_it_back, webhooks
 from services.redis_client import close_redis_client, init_redis_client
 from services.supabase_client import close_supabase_client, init_supabase_client
 
@@ -45,6 +45,8 @@ app.include_router(sessions.router)
 app.include_router(teach_it_back.router)
 app.include_router(leaderboard.router)
 app.include_router(webhooks.router)
+app.include_router(students.router)
+app.include_router(parents.router)
 
 
 @app.get("/health")

@@ -90,6 +90,14 @@ async def get_current_parent(authorization: str = Header(...)) -> UUID:
         raise HTTPException(status_code=401, detail="Token subject claim is not a valid UUID") from exc
 
 
+async def get_current_parent_claims(authorization: str = Header(...)) -> dict:
+    """Like get_current_parent, but returns the full verified JWT payload (needed for email)."""
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or malformed Authorization header")
+    token = authorization.removeprefix("Bearer ").strip()
+    return await _verify_token(token)
+
+
 async def verify_student_ownership(parent_id: UUID, student_id: UUID) -> None:
     """Raises 403 if student_id does not belong to parent_id."""
     student = await supabase_client.select_one(
