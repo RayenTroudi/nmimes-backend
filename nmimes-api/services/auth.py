@@ -84,7 +84,10 @@ async def get_current_parent(authorization: str = Header(...)) -> UUID:
     if not sub:
         raise HTTPException(status_code=401, detail="Token missing subject claim")
 
-    return UUID(sub)
+    try:
+        return UUID(sub)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail="Token subject claim is not a valid UUID") from exc
 
 
 async def verify_student_ownership(parent_id: UUID, student_id: UUID) -> None:
