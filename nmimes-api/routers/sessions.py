@@ -1,11 +1,12 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from models.session import SessionResponse, StartSessionRequest, StepAnswerRequest
 from services import supabase_client
+from services.auth import get_current_parent, verify_student_ownership
 from services.claude import detect_topic, evaluate_answer, format_sse, generate_first_question
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,11 @@ STEPS_TABLE = "session_steps"
 
 
 @router.post("/start")
-async def start_session(payload: StartSessionRequest) -> StreamingResponse:
+async def start_session(
+    payload: StartSessionRequest, parent_id: UUID = Depends(get_current_parent)
+) -> StreamingResponse:
+    await verify_student_ownership(parent_id, payload.student_id)
+
     async def event_stream():
         try:
             topic_info = await detect_topic(payload.ocr_text)
@@ -70,7 +75,16 @@ async def start_session(payload: StartSessionRequest) -> StreamingResponse:
 
 
 @router.post("/{session_id}/step")
-async def submit_step(session_id: UUID, payload: StepAnswerRequest) -> StreamingResponse:
+async def submit_step(
+    session_id: UUID, payload: StepAnswerRequest, parent_id: UUID = Depends(get_current_parent)
+) -> StreamingResponse:
+    session_for_auth = await supabase_client.select_one(
+        SESSIONS_TABLE, filters={"id": f"eq.{session_id}"}
+    )
+    if session_for_auth is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    await verify_student_ownership(parent_id, UUID(session_for_auth["student_id"]))
+
     async def event_stream():
         try:
             session = await supabase_client.select_one(
@@ -162,10 +176,13 @@ async def submit_step(session_id: UUID, payload: StepAnswerRequest) -> Streaming
 
 
 @router.get("/{session_id}", response_model=SessionResponse)
-async def get_session(session_id: UUID) -> SessionResponse:
+async def get_session(
+    session_id: UUID, parent_id: UUID = Depends(get_current_parent)
+) -> SessionResponse:
     session = await supabase_client.select_one(
         SESSIONS_TABLE, filters={"id": f"eq.{session_id}"}
     )
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
+    await verify_student_ownership(parent_id, UUID(session["student_id"]))
     return SessionResponse(**session)
