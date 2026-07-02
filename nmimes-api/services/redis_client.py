@@ -67,3 +67,13 @@ async def cache_incr(key: str) -> int:
     response = await client.post(f"/incr/{key}")
     response.raise_for_status()
     return int(response.json().get("result", 0))
+
+
+async def increment_with_expiry(key: str, ex_seconds: int) -> int:
+    """Increment key; set its expiry only on the increment that creates it (value becomes 1)."""
+    new_value = await cache_incr(key)
+    if new_value == 1:
+        client = get_client()
+        response = await client.post(f"/expire/{key}/{ex_seconds}")
+        response.raise_for_status()
+    return new_value
