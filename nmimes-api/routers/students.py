@@ -73,6 +73,9 @@ async def get_student_profile(
         return {"cached": True, "profile": cached}
 
     row = await select_one(STUDENTS_TABLE, filters={"id": f"eq.{student_id}"})
+    # Unknown ids already 403 via verify_student_ownership (it filters on
+    # id+parent_id); this 404 only fires if the row was deleted between the
+    # ownership check and here (TOCTOU race).
     if row is None:
         raise HTTPException(status_code=404, detail="Student not found")
 

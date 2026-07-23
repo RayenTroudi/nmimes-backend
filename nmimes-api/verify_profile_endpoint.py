@@ -87,14 +87,28 @@ def run():
     r3 = client.get(f"/students/{STUDENT_ID}/profile")
     assert r3.status_code == 403, r3.text
 
-    # 4. Unknown student -> 404 (owner of a non-existent id).
+    # 4. TOCTOU race -> 404. verify_student_ownership filters on id+parent_id
+    # together, so an unknown id is indistinguishable from a non-owned id and
+    # returns 403, not 404 (see change note in routers/students.py). The only
+    # way to actually reach the 404 branch is for ownership to pass and then
+    # the row to be gone by the time we fetch it (e.g. deleted concurrently
+    # between the ownership check and the profile select). Simulate that:
+    # caller is still the real owner, ownership check passes, but select_one
+    # now returns None for everything. Use a fresh id with no cache entry so
+    # the request actually reaches select_one instead of short-circuiting on
+    # the cache populated by steps 1-2.
     app.dependency_overrides[auth.get_current_parent] = lambda: UUID(OWNER_ID)
-    unknown = "44444444-4444-4444-4444-444444444444"
+    race_id = "55555555-5555-5555-5555-555555555555"
 
-    async def owns_anything(parent_id, student_id):
+    async def ownership_passes(parent_id, student_id):
         return None
-    students_router.verify_student_ownership = owns_anything
-    r4 = client.get(f"/students/{unknown}/profile")
+    students_router.verify_student_ownership = ownership_passes
+
+    async def select_one_row_gone(table, filters, select="*"):
+        return None
+    students_router.select_one = select_one_row_gone
+
+    r4 = client.get(f"/students/{race_id}/profile")
     assert r4.status_code == 404, r4.text
 
     print("OK: profile endpoint verification passed")
