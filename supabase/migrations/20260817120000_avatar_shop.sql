@@ -136,6 +136,10 @@ begin
    where id = v_student.id
   returning points_balance into v_student.points_balance;
 
+  -- Close the gate as soon as the sanctioned write is done, so it cannot leak
+  -- to later statements in the same transaction.
+  perform set_config('app.allow_points_write', '0', true);
+
   return json_build_object(
     'points_balance', v_student.points_balance,
     'avatar_code',    p_code
