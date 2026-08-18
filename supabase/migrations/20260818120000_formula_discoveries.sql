@@ -35,7 +35,12 @@ create table if not exists public.formula_discoveries (
   expression    text not null,
   formula_key   text not null,
   meaning       jsonb,
-  category      text not null default 'other',
+  -- Same five values snap_sessions is constrained to. The RPC only ever copies
+  -- that column across, so this cannot fire today — it is here so the table
+  -- does not depend on another table's invariant to stay valid.
+  category      text not null default 'other'
+                constraint formula_discoveries_category_check
+                check (category in ('algebra', 'statistics', 'geometry', 'calculus', 'other')),
   source        text not null,
   -- Losing the session that taught a formula must not un-discover it.
   session_id    uuid references public.snap_sessions(id) on delete set null,
